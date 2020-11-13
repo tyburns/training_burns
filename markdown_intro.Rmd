@@ -17,6 +17,8 @@ library(readr)
 
 Martin is adding a test comment. 
 
+Therese is also editing this markdown
+
 - Read in Data
 
 My data comes from the Arctic Data Center compiled by [Craig Tweedie (2009)](https://arcticdata.io/catalog/view/doi:10.18739/A25T3FZ8X)
