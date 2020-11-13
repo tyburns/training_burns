@@ -1,0 +1,54 @@
+---
+title: "Markdown practice"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+```
+
+# Introduction
+
+
+- Read in Data
+
+My data comes from the Arctic Data Center compiled by [Craig Tweedie (2009)](https://arcticdata.io/catalog/view/doi:10.18739/A25T3FZ8X)
+
+```{r message=FALSE}
+bg_chem <- read_csv("BGchem2008data.csv")
+```
+
+# Analysis
+
+- calculate summary statistics
+- calculate mean Redfield ration
+
+
+```{r}
+nitrate <- mean(bg_chem$NO3)
+nitrite <- mean(bg_chem$NO2)
+amm <- mean(bg_chem$NH4)
+phos <- mean(bg_chem$P)
+```
+
+
+```{r}
+ratio <- (nitrate + nitrite +amm) / phos
+
+```
+
+Redfield ratio is `r round(ratio) `
+
+- plot Redfield ratio
+
+r, echo = FALSE makes the code hidden 
+Use set up chunk to set things up for the whole markdown
+```{r, echo = FALSE}
+plot(bg_chem$P, bg_chem$NO2 + bg_chem$NO3 + bg_chem$NH4)
+```
