@@ -1,0 +1,80 @@
+---
+title: "Dplyr practice"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message= FALSE}
+library (dplyr)
+library (readr)
+library (tidyr)
+```
+*note: some packages have functions that have the same name. To specify the package and function use :: for example dplyr::filter 
+
+## Data Sources
+
+### Read in sources
+
+```{r}
+catch_original <- read_csv("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1")
+```
+
+## Clean and reshape data
+
+### remove unncessary columns
+
+```{r}
+catch_data <- catch_original %>%
+  select(Region, Year, Chinook, Sockeye, Pink, Chum)
+#option1 select (Regioin:Chum)
+#option2 select (-All, -notesRegCode)
+```
+
+### check column typing
+
+```{r}
+#mutating I -> 1 
+catch_clean <- catch_data %>% 
+  mutate(Chinook = ifelse(Chinook =="I", 1, Chinook))%>%
+  mutate(Chinook = as.numeric(Chinook))
+# if Chinook == I return 1, if Chinook does not equal I, return the original Chinook value
+
+```
+
+### reshape data
+
+```{r}
+catch_long <- catch_clean %>%
+  pivot_longer(-c(Region, Year), names_to = "species", values_to = "catch")
+# ignoring region and year, the remaining columns get added under the new column species, and the values come under the new column catch
+```
+
+now we can reverse our catch long using pivot long, to be back at the original
+
+```{r}
+catch_wide <- catch_long %>%
+  pivot_wider(names_from = "species", values_from = "catch")
+```
+
+```{r}
+catch_long <- catch_long %>%
+  rename(catch_thousands = catch)
+```
+
+```{r}
+catch_long <- catch_long %>%
+  mutate(catch = catch_thousands * 1000) %>%
+  select(-catch_thousands)
+```
+
+## Join to Region's dataset
+
+```{r}
+mean_region <- catch_long %>%
+  group_by(Region) %>%
+  summarise(catch_mean = mean(catch))
+```
+
