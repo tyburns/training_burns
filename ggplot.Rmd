@@ -1,0 +1,134 @@
+---
+title: "ggplot practice"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F}
+library(leaflet)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(DT)
+library(scales)
+library(knitr)
+```
+
+```{r}
+data_url <- "https://knb.ecoinformatics.org/knb/d1/mn/v2/object/urn%3Auuid%3Af119a05b-bbe7-4aea-93c6-85434dcb1c5e"
+
+esc <- tryCatch(
+    read.csv("data/escapement.csv", stringsAsFactors = FALSE),
+    error=function(cond) {
+        message(paste("Escapement file does not seem to exist, so get it from the KNB."))
+        esc <- read.csv(url(data_url, method = "libcurl"), stringsAsFactors = FALSE)
+        return(esc)
+    }
+)
+
+head(esc)
+```
+
+annual counts by species and region 
+```{r}
+annual_esc <- esc %>%
+  separate(sampleDate, c("year", "month" , "day"), sep = "-" ) %>%
+  mutate(year = as.numeric(year)) %>%
+  group_by(SASAP.Region, year, Species ) %>%
+  summarise(escapement = sum(DailyCount))%>%
+  filter(Species %in% c("Sockeye", "Chum", "Coho", "Pink", "Chinook"))
+#other option is 
+#filter (Species == "Sockeye" | Species == "Coho" ) etc. This is what you did in the ash meadows thing 
+```
+
+```{r}
+ggplot(annual_esc, aes(Species, escapement, fill = SASAP.Region))+
+  geom_col()
+#to arrange in a specific order use factor 
+#annual_esc$Species <- factor(annual_esc$Species, level = c("Coho", "Chinook", etc))
+#See also "forcats" package
+```
+```{r}
+kodiak_esc <- annual_esc %>%
+  filter(SASAP.Region == "Kodiak")
+
+ggplot(kodiak_esc, aes(year, escapement, color = Species))+
+  geom_point()+
+  geom_line()+
+  ylab("Escapement")
+  ggtitle("Kodiak Annual Escapement")+
+  theme_classic()
+```
+
+# Scales Package
+```{r}
+ggplot(kodiak_esc, aes(year, escapement, color = Species)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(labels = comma) +
+  ylab("Escapement") +
+  ggtitle("Kodiak Annual Escapement") +
+  theme_classic()
+```
+
+```{r}
+ggplot(annual_esc, aes(year, escapement, color = Species))+
+  geom_point()+
+  geom_line()+
+  ylab("Year")+
+  xlab("Escapement")+
+  ggtitle("SASAP Region Escapement")+
+  scale_y_continuous(labels = comma)+
+  facet_wrap(~SASAP.Region)+
+  theme_classic()
+
+```
+
+```{r}
+locations <- esc %>%
+  distinct(Location, Latitude, Longitude) %>%
+  drop_na()
+```
+
+interactive table
+```{r}
+datatable(locations)
+```
+
+static table
+```{r}
+kable(locations)
+```
+other table package 
+https://gt.rstudio.com/ 
+
+# Leaflet
+Interactive map
+```{r}
+leaflet(locations) %>%
+  addTiles() %>%
+  addMarkers(lng = ~ Longitude, lat = ~ Latitude, popup = ~Location)
+```
+
+```{r}
+leaflet(locations) %>% 
+  addWMSTiles("https://www.gebco.net/data_and_products/gebco_web_services/web_map_service/mapserv?",
+              layers = 'GEBCO_LATEST',
+              attribution = "Imagery reproduced from the GEBCO_2014 Grid, version 20150318, www.gebco.net") %>%
+  addCircleMarkers(lng = ~Longitude,
+                   lat = ~Latitude,
+                   popup = ~ Location,
+                   radius = 5,
+                   # set fill properties
+                   fillColor = "salmon",
+                   fillOpacity = 1,
+                   # set stroke properties
+                   stroke = T,
+                   weight = 0.5,
+                   color = "white",
+                   opacity = 1)
+```
+
