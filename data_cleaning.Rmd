@@ -1,0 +1,113 @@
+---
+title: "Data Cleaning"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages used 
+```{r, messages = FALSE}
+library(rvest)
+library(readr)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+```
+
+## Loading the data
+```{r}
+webpage <- read_html("https://www.pwrc.usgs.gov/bbl/manual/speclist.cfm")
+
+tbls <- html_nodes(webpage, "table") %>% 
+    html_table(fill = TRUE)
+
+species <- tbls[[1]] %>% 
+    clean_names() %>% 
+    select(alpha_code, common_name) %>% 
+    mutate(alpha_code = tolower(alpha_code))
+```
+
+janitor package helps clean up column names 
+clean_names() - no special characters, lower case, no spaces 
+
+```{r, message = F}
+pred_original <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A9ffec04c-7e2d-41dd-9e88-b6c2e8c4375e")
+nest_original <- read_csv("https://arcticdata.io/metacat/d1/mn/v2/object/urn%3Auuid%3A982bd2fc-4edf-4da7-96ef-0d11b853102d")
+```
+
+### Writing a function that will translate species code into common names
+I want the function to grab the species common name from the species db and relate it to the alpha code 
+```{r}
+alpha_to_common <- function(dataframe, definitions) {
+  return_dataframe <- left_join(dataframe, definitions, by = c("species" = "alpha_code"))
+  return(return_dataframe)
+}
+
+pred <- alpha_to_common(dataframe = pred_original, definitions = species)
+nest <- alpha_to_common(dataframe = nest_original, definitions = species)
+```
+## Alternative 
+
+```{r}
+#' Function to add common name to data.frame according to the BBL list of species codes
+
+#' @param df A data frame containing BBL species codes in column `species`
+#' @param species A data frame defining BBL species codes with columns `alpha_code` and `common_name`
+#' @return A data frame with original data df, plus the common name of species
+
+
+#assign_species_name <- function(df, species){
+    if (!("alpha_code" %in% names(species)) |
+        !("species" %in% names(df)) |
+        !("common_name" %in% names(species))){
+      stop("Tables appear to be formatted incorrectly.")
+    }  
+  
+    return_df <- left_join(df, species, by = c("species" = "alpha_code"))
+    
+    if (nrow(return_df) > nrow(df)){
+      warning("Joined table has more rows than original table. Check species table for duplicated code values.")
+    }
+    
+    if (length(which(is.na(return_df$common_name))) > 0){
+      x <- length(which(is.na(return_df$common_name)))
+      warning(paste("Common name has", x, "rows containing NA"))
+    }
+    
+    return(return_df)
+        
+}
+
+```
+
+### Total number oredators by year and species
+```{r}
+pred_year_sp <- pred %>%
+  group_by(year, common_name) %>%
+  summarize(Count = sum(count))%>%
+  filter(!is.na(common_name))
+
+ggplot(pred_year_sp, aes (x=common_name, y=Count, fill = common_name)) +
+  geom_col()+
+  facet_wrap(~year)
+```
+### Total number of eggs predated by year and species
+
+```{r}
+eggs_year_species <- nest %>%
+  group_by(year, common_name) %>%
+  summarise("Eggs_predated" = sum(number_eggs_predated))%>%
+filter(!is.na(common_name))
+```
+### Total number of predators by year, join to summarise egg predation data, and plot 
+
+```{r}
+eggs_pred_year_species <- left_join(eggs_year_species, pred_year_sp, by = "year")
+
+ggplot(eggs_pred_year_species, aes (x=Count, y=Eggs_predated, fill = common_name)) +
+  geom_point()+
+  facet_wrap(~common_name)
+```
+
